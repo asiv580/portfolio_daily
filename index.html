@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的持仓跟踪</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --line:#e6e8ec; --line2:#f0f1f4;
+    --tx:#1b1f26; --tx2:#5b6472; --tx3:#98a0ad;
+    --up:#d92b2b; --down:#0f9d58; --accent:#2b5cff; --amber:#e08c00;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:14px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px 20px 48px}
+  header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+  h1{font-size:22px;margin:0;letter-spacing:.5px}
+  .meta{color:var(--tx3);font-size:12.5px;line-height:1.7;text-align:right}
+  .banner{background:#fff8e6;border:1px solid #ffe1a8;color:#8a5a00;
+    padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:16px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .k{color:var(--tx2);font-size:12.5px;margin-bottom:8px}
+  .kpi .v{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:.2px}
+  .kpi .s{color:var(--tx3);font-size:12px;margin-top:6px;font-variant-numeric:tabular-nums}
+  .up{color:var(--up)} .down{color:var(--down)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card.full{grid-column:1 / -1}
+  .chd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:10px;flex-wrap:wrap}
+  .chd h2{font-size:14.5px;margin:0;font-weight:600}
+  .chd .hint{color:var(--tx3);font-size:12px}
+  .btns{display:flex;gap:6px}
+  .btn{border:1px solid var(--line);background:#fbfbfc;color:var(--tx2);border-radius:8px;
+    padding:4px 11px;font-size:12.5px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:#ccd2dc;color:var(--tx)}
+  .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chart{width:100%;height:300px}
+  .chart.tall{height:360px}
+  .chart.sm{height:280px}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  th{color:var(--tx2);font-weight:500;text-align:right;padding:10px 8px;border-bottom:1px solid var(--line);
+    white-space:nowrap;font-size:12.5px}
+  th:first-child,td:first-child{text-align:left}
+  th:nth-child(2),td:nth-child(2){text-align:left}
+  td{padding:11px 8px;border-bottom:1px solid var(--line2);text-align:right;white-space:nowrap}
+  tbody tr:hover{background:#fafbfc}
+  tbody tr:last-child td{border-bottom:none}
+  .nm{font-weight:600}
+  .cd{color:var(--tx3);font-size:12px}
+  .bar{position:relative;height:6px;border-radius:3px;background:var(--line2);min-width:74px;margin-top:5px}
+  .bar > i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;display:block}
+  footer{color:var(--tx3);font-size:12px;margin-top:20px;line-height:1.9}
+  code{background:#eef0f4;border-radius:5px;padding:2px 6px;font-size:12px;color:#374151}
+  @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>我的持仓跟踪</h1>
+      <div class="meta" style="text-align:left;margin-top:6px">
+        数据截至 <b>2026-09-17</b>　·　净值区间 2026-09-02 ~ 2026-09-17（12 个交易日）
+      </div>
+    </div>
+    <div class="meta">生成于 2026-09-17 17:38<br>行情源：腾讯财经（收盘价，人民币计价）</div>
+  </header>
+
+  <div id="demoBanner" class="banner" style="display:none"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid">
+    <div class="card full">
+      <div class="chd">
+        <h2>组合走势与累计收益率</h2>
+        <div class="btns" id="rangeBtns">
+          <button class="btn" data-r="21">近1月</button>
+          <button class="btn" data-r="63">近3月</button>
+          <button class="btn on" data-r="0">全部</button>
+        </div>
+      </div>
+      <div id="c1" class="chart tall"></div>
+    </div>
+
+    <div class="card full">
+      <div class="chd"><h2>每日盈亏</h2><div class="hint">红涨绿跌 · 含分红（除息日入账）· 单位：元</div></div>
+      <div id="c2" class="chart"></div>
+    </div>
+
+    <div class="grid" id="subGrid" style="grid-column:1 / -1"></div>
+
+    <div class="card full">
+      <div class="chd"><h2>持仓明细</h2><div class="hint" id="tblHint"></div></div>
+      <div style="overflow-x:auto"><table id="tbl">
+        <thead><tr>
+          <th>代码</th><th>名称 / 建仓日</th><th>份额</th><th>成本价</th><th>最新价</th>
+          <th>市值</th><th>已分红</th><th>浮动盈亏</th><th>盈亏率</th><th>占仓比</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <footer>
+    更新方式：<code>python scripts/update_nav.py</code> 抓当日收盘 → <code>python scripts/build_dashboard.py</code> 重出看板<br>
+    <b>口径</b>：总市值 = 份额 × 不复权收盘价 ＋ 累计现金分红 ＋ 手填现金；累计收益率 =（总市值 − 总成本）/ 总成本（简单口径，加减仓日会跳变）。<br>
+    <b>分红</b>：在<b>除息日</b>按「份额 × 每份分红」计入现金，与当日价格下跌相抵，因此除息日不会出现假亏损；台账见 <code>data/dividends.csv</code>（由脚本用「前复权 ÷ 不复权」收盘价比值的台阶自动识别，可人工增删）。<br>
+    行情源：腾讯财经日 K 收盘价（不复权，人民币计价）；基准为归一化累计收益率。
+  </footer>
+</div>
+
+<!-- ECharts：优先用本地内置副本（可离线打开），失效再依次回落 CDN -->
+<script src="./vendor/echarts.min.js"></script>
+<script>
+if (typeof echarts === 'undefined') {
+  document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"><\/script>');
+}
+</script>
+<script>
+if (typeof echarts === 'undefined') {
+  document.write('<script src="https://unpkg.com/echarts@5.5.1/dist/echarts.min.js"><\/script>');
+}
+</script>
+<script>
+const DATA = {"title": "我的持仓跟踪", "generatedAt": "2026-09-17 17:38", "asOf": "2026-09-17", "isDemo": false, "nav": [{"d": "2026-09-02", "v": 202348.6, "c": 202634.0, "dv": 0.0, "day_pnl": 0.0, "day_ret": 0.0, "cr": -0.001408, "dd": 0.0}, {"d": "2026-09-03", "v": 202348.6, "c": 202634.0, "dv": 0.0, "day_pnl": 0.0, "day_ret": 0.0, "cr": -0.001408, "dd": 0.0}, {"d": "2026-09-04", "v": 203490.2, "c": 202634.0, "dv": 0.0, "day_pnl": 1141.6, "day_ret": 0.005642, "cr": 0.004225, "dd": 0.0}, {"d": "2026-09-07", "v": 201777.8, "c": 202634.0, "dv": 0.0, "day_pnl": -1712.4, "day_ret": -0.008415, "cr": -0.004225, "dd": -0.008415147265077253}, {"d": "2026-09-08", "v": 202063.2, "c": 202634.0, "dv": 0.0, "day_pnl": 285.4, "day_ret": 0.001414, "cr": -0.002817, "dd": -0.0070126227208976155}, {"d": "2026-09-09", "v": 202634.0, "c": 202634.0, "dv": 2140.5, "day_pnl": 570.8, "day_ret": 0.002825, "cr": 0.0, "dd": -0.0042075736325386266}, {"d": "2026-09-10", "v": 202919.4, "c": 202634.0, "dv": 2140.5, "day_pnl": 285.4, "day_ret": 0.001408, "cr": 0.001408, "dd": -0.002805049088359132}, {"d": "2026-09-11", "v": 202063.2, "c": 202634.0, "dv": 2140.5, "day_pnl": -856.2, "day_ret": -0.004219, "cr": -0.002817, "dd": -0.0070126227208976155}, {"d": "2026-09-14", "v": 203490.2, "c": 202634.0, "dv": 2140.5, "day_pnl": 1427.0, "day_ret": 0.007062, "cr": 0.004225, "dd": 0.0}, {"d": "2026-09-15", "v": 202491.3, "c": 202634.0, "dv": 2140.5, "day_pnl": -998.9, "day_ret": -0.004909, "cr": -0.000704, "dd": -0.004908835904628445}, {"d": "2026-09-16", "v": 201349.7, "c": 202634.0, "dv": 2140.5, "day_pnl": -1141.6, "day_ret": -0.005638, "cr": -0.006338, "dd": -0.010518934081346423}, {"d": "2026-09-17", "v": 200778.9, "c": 202634.0, "dv": 2140.5, "day_pnl": -570.8, "day_ret": -0.002835, "cr": -0.009155, "dd": -0.013323983169705554}], "bench": [{"d": "2026-09-02", "cr": 0.0}, {"d": "2026-09-03", "cr": 0.0002164502164503368}, {"d": "2026-09-04", "cr": -0.0008658008658010141}, {"d": "2026-09-07", "cr": 0.003030303030303161}, {"d": "2026-09-08", "cr": 0.000865800865800681}, {"d": "2026-09-09", "cr": 0.003679653679653505}, {"d": "2026-09-10", "cr": -0.0006493506493506773}, {"d": "2026-09-11", "cr": -0.008874458874458924}, {"d": "2026-09-14", "cr": -0.014718614718614798}, {"d": "2026-09-15", "cr": -0.020995670995671123}, {"d": "2026-09-16", "cr": -0.015151515151515249}, {"d": "2026-09-17", "cr": -0.01904761904761909}], "benchName": "沪深300ETF", "holdings": [{"code": "515450", "name": "红利低波50ETF南方", "market": "SH", "shares": 142700.0, "cost": 1.42, "price": 1.392, "value": 198638.4, "div": 2140.5, "asset": 200778.9, "pnl": -1855.1000000000058, "pct": -0.009154929577464818, "buyDate": "2026-09-02"}], "summary": {"totalValue": 200778.9, "totalCost": 202634.0, "cumPnl": -1855.1000000000058, "cumRet": -0.009154929577464818, "cumDiv": 2140.5, "pricePnl": -3995.600000000006, "cumRetNoDiv": -0.01971830985915496, "divPct": 0.01056338028169014, "dayPnl": -570.8, "dayRet": -0.002835, "asOf": "2026-09-17", "cash": 0, "count": 1, "cashRatio": 0.0, "exposure": 1.0, "maxDD": -0.013323983169705554, "maxDDDate": "回撤低点 2026-09-17", "bars": 12, "startDate": "2026-09-02"}};
+
+const UP = '#d92b2b', DOWN = '#0f9d58';
+const col = v => v > 0 ? UP : (v < 0 ? DOWN : '#5b6472');
+const fmt = (v, d = 2) => (v == null || isNaN(v)) ? '—'
+  : v.toLocaleString('zh-CN', {minimumFractionDigits: d, maximumFractionDigits: d});
+const fmtS = v => (v > 0 ? '+' : '') + fmt(v);
+const fmtP = v => (v == null || isNaN(v)) ? '—' : (v > 0 ? '+' : '') + (v * 100).toFixed(2) + '%';
+const yuan = v => fmt(v, 0);
+
+/* ---------------- KPI ---------------- */
+function renderKpis() {
+  const s = DATA.summary;
+  const items = [
+    {k: '总市值', v: '¥' + yuan(s.totalValue), c: '',
+     s: '含分红现金 ¥' + yuan(s.cumDiv) + (s.cash > 0 ? ' · 另含现金 ¥' + yuan(s.cash) : '')},
+    {k: '总成本', v: '¥' + yuan(s.totalCost), c: '',
+     s: s.count + ' 只标的 · ' + s.startDate + ' 起 ' + s.bars + ' 个交易日'},
+    {k: '累计盈亏（含分红）', v: fmtS(s.cumPnl), s: fmtP(s.cumRet), c: col(s.cumPnl)},
+    {k: '当日盈亏', v: fmtS(s.dayPnl), s: fmtP(s.dayRet) + '　' + s.asOf, c: col(s.dayPnl)},
+    {k: '累计现金分红', v: '¥' + yuan(s.cumDiv), c: s.cumDiv > 0 ? 'up' : '',
+     s: s.cumDiv > 0 ? '对收益率贡献 ' + fmtP(s.divPct) : '区间内无除息'},
+    {k: '不含分红口径', v: fmtP(s.cumRetNoDiv), c: col(s.pricePnl),
+     s: '纯价差损益 ' + fmtS(s.pricePnl, 0)},
+    {k: '最大回撤', v: (s.maxDD * 100).toFixed(2) + '%', s: s.maxDDDate, c: ''},
+    {k: '仓位（非现金）', v: (s.exposure * 100).toFixed(1) + '%',
+     s: '现金占比 ' + (s.cashRatio * 100).toFixed(1) + '%', c: ''}
+  ];
+  document.getElementById('kpis').innerHTML = items.map(i =>
+    '<div class="kpi"><div class="k">' + i.k + '</div>'
+    + '<div class="v ' + i.c + '">' + i.v + '</div>'
+    + '<div class="s">' + i.s + '</div></div>').join('');
+
+  if (DATA.isDemo) {
+    const b = document.getElementById('demoBanner');
+    b.style.display = 'block';
+    b.innerHTML = '<b>当前为示例持仓（演示数据）</b>　→　请把 <code>data/holdings.csv</code> 换成你的真实持仓'
+      + '（代码 / 名称 / 市场 / 份额 / 成本价 / 建仓日），再跑一次 '
+      + '<code>update_nav.py --rebuild</code> 与 <code>build_dashboard.py</code>。';
+  }
+}
+
+/* ---------------- 图1 组合走势 ---------------- */
+let c1, c2;
+const AXIS = {
+  axisLine: {lineStyle: {color: '#dfe3ea'}},
+  axisLabel: {color: '#8a929e', fontSize: 11},
+  splitLine: {lineStyle: {color: '#f0f1f4'}}
+};
+
+function sliceNav(n) {
+  const nav = DATA.nav;
+  if (!n || n >= nav.length) return nav;
+  return nav.slice(-n);
+}
+
+function drawMain(n) {
+  const nav = sliceNav(n);
+  const ds = nav.map(x => x.d.slice(5));
+  const vals = nav.map(x => x.v);
+  const crs = nav.map(x => x.cr * 100);
+  const bmap = {};
+  DATA.bench.forEach(b => bmap[b.d] = b.cr * 100);
+  const bs = nav.map(x => bmap[x.d] == null ? null : bmap[x.d]);
+
+  c1.setOption({
+    animationDuration: 500,
+    grid: {left: 62, right: 58, top: 40, bottom: 34},
+    legend: {top: 0, right: 0, itemWidth: 14, itemHeight: 8,
+      textStyle: {color: '#5b6472', fontSize: 12}},
+    tooltip: {
+      trigger: 'axis',
+      transitionDuration: 0,
+      backgroundColor: 'rgba(255,255,255,.97)', borderColor: '#e6e8ec',
+      textStyle: {color: '#1b1f26', fontSize: 12},
+      formatter: p => {
+        let h = '<b>' + p[0].axisValue + '</b>';
+        p.forEach(i => {
+          const raw = i.value;
+          const txt = (raw == null || raw === '')
+            ? '<span style="color:#98a0ad">—</span>'
+            : (i.seriesName.indexOf('市值') >= 0 ? '¥' + fmt(Number(raw), 0) : fmt(Number(raw), 2) + '%');
+          h += '<br>' + i.marker + i.seriesName + '：<b>' + txt + '</b>';
+        });
+        return h;
+      }
+    },
+    xAxis: Object.assign({}, AXIS, {type: 'category', data: ds, boundaryGap: false,
+      axisTick: {show: false}}),
+    yAxis: [
+      Object.assign({}, AXIS, {type: 'value', scale: true,
+        axisLabel: {color: '#8a929e', fontSize: 11,
+          formatter: v => Number(v).toLocaleString('en-US')}}),
+      Object.assign({}, AXIS, {type: 'value', scale: true,
+        axisLabel: {color: '#8a929e', fontSize: 11, formatter: '{value}%'},
+        splitLine: {show: false}})
+    ],
+    series: [
+      {
+        name: '组合总市值', type: 'line', data: vals, yAxisIndex: 0,
+        smooth: true, showSymbol: false, symbol: 'circle',
+        lineStyle: {width: 2, color: '#2b5cff'},
+        itemStyle: {color: '#2b5cff'},
+        areaStyle: {color: {
+          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [{offset: 0, color: 'rgba(43,92,255,.18)'},
+                       {offset: 1, color: 'rgba(43,92,255,0)'}]}}
+      },
+      {
+        name: '组合累计收益率', type: 'line', data: crs, yAxisIndex: 1,
+        smooth: true, showSymbol: false,
+        lineStyle: {width: 2.2, color: UP}, itemStyle: {color: UP},
+        markLine: {silent: true, symbol: 'none',
+          lineStyle: {color: '#c9ced8', type: 'dashed'},
+          label: {show: false}, data: [{yAxis: 0}]}
+      },
+      {
+        name: '基准 ' + DATA.benchName, type: 'line', data: bs, yAxisIndex: 1,
+        smooth: true, showSymbol: false, connectNulls: true,
+        lineStyle: {width: 1.6, color: '#98a0ad', type: 'dashed'},
+        itemStyle: {color: '#98a0ad'}
+      }
+    ]
+  }, true);
+}
+
+function drawDaily(n) {
+  const nav = sliceNav(n);
+  const ds = nav.map(x => x.d.slice(5));
+  const pnl = nav.map(x => x.day_pnl);
+  // 除息日标记（累计分红当日跳增）
+  const marks = [];
+  for (let i = 1; i < nav.length; i++) {
+    if (nav[i].dv > nav[i - 1].dv + 0.005) marks.push({xAxis: nav[i].d.slice(5)});
+  }
+  c2.setOption({
+    animationDuration: 500,
+    grid: {left: 62, right: 24, top: 24, bottom: 34},
+    tooltip: {
+      trigger: 'axis',
+      transitionDuration: 0,
+      backgroundColor: 'rgba(255,255,255,.97)', borderColor: '#e6e8ec',
+      textStyle: {color: '#1b1f26', fontSize: 12},
+      formatter: p => {
+        const i = p[0].dataIndex;
+        const dd = nav[i].dv - (i > 0 ? nav[i - 1].dv : 0);
+        return '<b>' + nav[i].d + '</b><br>当日盈亏：<b>' + fmtS(pnl[i]) + '</b>'
+          + '<br>当日收益率：<b>' + fmtP(nav[i].day_ret) + '</b>'
+          + (dd > 0.005 ? '<br><span style="color:#e08c00">其中除息入账：<b>+' + fmt(dd, 0) + '</b></span>' : '');
+      }
+    },
+    xAxis: Object.assign({}, AXIS, {type: 'category', data: ds, axisTick: {show: false}}),
+    yAxis: Object.assign({}, AXIS, {type: 'value', name: '元', scale: true,
+      nameTextStyle: {color: '#8a929e', fontSize: 11}}),
+    series: [{
+      type: 'bar', data: pnl.map(v => ({value: v, itemStyle: {color: col(v)}})),
+      barMaxWidth: 14, itemStyle: {borderRadius: [2, 2, 0, 0]},
+      markLine: {
+        silent: true, symbol: 'none',
+        label: {show: true, formatter: '除息', color: '#e08c00', fontSize: 11},
+        lineStyle: {color: '#e08c00', type: 'dashed', width: 1},
+        data: marks
+      }
+    }]
+  }, true);
+}
+
+/* ---------------- 小图区：按持仓只数自适应 ---------------- */
+const MULTI = DATA.holdings.length >= 2;
+const SUB = {};
+function inst(id) { if (!SUB[id]) SUB[id] = echarts.init(document.getElementById(id)); return SUB[id]; }
+function cardHtml(id, title, hint) {
+  return '<div class="card"><div class="chd"><h2>' + title + '</h2>'
+    + '<div class="hint">' + hint + '</div></div>'
+    + '<div id="' + id + '" class="chart sm"></div></div>';
+}
+
+function buildSubCards() {
+  let h = cardHtml('cDD', '净值回撤（水下曲线）', '距区间最高净值的跌幅');
+  if (MULTI) {
+    h += cardHtml('cPnl', '各标的浮动盈亏', '单位：元');
+    h += cardHtml('cPie', '持仓结构', '按市值占比');
+  }
+  h += cardHtml('cEx', '相对基准的超额收益', '组合 − ' + DATA.benchName + '（累计，百分点）');
+  document.getElementById('subGrid').innerHTML = h;
+}
+
+/* 净值回撤 */
+function drawDD(n) {
+  const nav = sliceNav(n);
+  inst('cDD').setOption({
+    grid: {left: 62, right: 24, top: 24, bottom: 34},
+    tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,.97)', borderColor: '#e6e8ec',
+      textStyle: {color: '#1b1f26', fontSize: 12},
+      formatter: p => '<b>' + nav[p[0].dataIndex].d + '</b><br>回撤：<b>'
+        + (nav[p[0].dataIndex].dd * 100).toFixed(2) + '%</b>'},
+    xAxis: Object.assign({}, AXIS, {type: 'category', data: nav.map(x => x.d.slice(5)),
+      boundaryGap: false, axisTick: {show: false}}),
+    yAxis: Object.assign({}, AXIS, {type: 'value', max: 0,
+      axisLabel: {color: '#8a929e', fontSize: 11, formatter: v => v.toFixed(2) + '%'}}),
+    series: [{
+      type: 'line', data: nav.map(x => +(x.dd * 100).toFixed(3)),
+      smooth: true, showSymbol: false,
+      lineStyle: {width: 1.8, color: DOWN}, itemStyle: {color: DOWN},
+      areaStyle: {color: 'rgba(15,157,88,.16)'}
+    }]
+  }, true);
+}
+
+/* 相对基准的超额收益（累计） */
+function drawExcess(n) {
+  const nav = sliceNav(n);
+  const bmap = {};
+  DATA.bench.forEach(b => bmap[b.d] = b.cr);
+  const ex = nav.map(x => +((x.cr - (bmap[x.d] == null ? x.cr : bmap[x.d])) * 100).toFixed(3));
+  const last = ex.length ? ex[ex.length - 1] : 0;
+  const c = last >= 0 ? UP : DOWN;
+  inst('cEx').setOption({
+    grid: {left: 62, right: 24, top: 24, bottom: 34},
+    tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,.97)', borderColor: '#e6e8ec',
+      textStyle: {color: '#1b1f26', fontSize: 12},
+      formatter: p => '<b>' + nav[p[0].dataIndex].d + '</b><br>超额：<b>'
+        + (p[0].value > 0 ? '+' : '') + p[0].value.toFixed(2) + '%</b>'},
+    xAxis: Object.assign({}, AXIS, {type: 'category', data: nav.map(x => x.d.slice(5)),
+      boundaryGap: false, axisTick: {show: false}}),
+    yAxis: Object.assign({}, AXIS, {type: 'value', scale: true,
+      axisLabel: {color: '#8a929e', fontSize: 11, formatter: v => v.toFixed(2) + '%'}}),
+    series: [{
+      type: 'line', data: ex, smooth: true, showSymbol: false,
+      lineStyle: {width: 2, color: c}, itemStyle: {color: c},
+      areaStyle: {color: last >= 0 ? 'rgba(217,43,43,.14)' : 'rgba(15,157,88,.16)'},
+      markLine: {silent: true, symbol: 'none', label: {show: false},
+        lineStyle: {color: '#c9ced8', type: 'dashed'}, data: [{yAxis: 0}]}
+    }]
+  }, true);
+}
+
+/* 持仓结构 */
+function drawPie() {
+  const hs = DATA.holdings;
+  const pieData = hs.map(h => ({name: h.name, value: h.asset}));
+  if (DATA.summary.cash > 0) pieData.push({name: '现金', value: DATA.summary.cash});
+  const palette = ['#2b5cff', '#e08c00', '#0f9d58', '#d92b2b', '#7b61ff', '#00a3a3', '#c2410c', '#98a0ad'];
+  inst('cPie').setOption({
+    color: palette,
+    tooltip: {trigger: 'item', backgroundColor: 'rgba(255,255,255,.97)', borderColor: '#e6e8ec',
+      textStyle: {color: '#1b1f26', fontSize: 12},
+      formatter: p => p.name + '<br>持仓资产 ¥' + fmt(p.value, 0) + '（' + p.percent + '%）'},
+    legend: {bottom: 0, left: 'center', textStyle: {color: '#5b6472', fontSize: 12},
+      itemWidth: 10, itemHeight: 10},
+    series: [{
+      type: 'pie', radius: ['46%', '68%'], center: ['50%', '44%'],
+      avoidLabelOverlap: true, label: {show: false},
+      itemStyle: {borderColor: '#fff', borderWidth: 2},
+      data: pieData
+    }]
+  });
+}
+
+/* 各标的盈亏 */
+function drawPnlBar() {
+  const hs = DATA.holdings.slice().sort((a, b) => a.pnl - b.pnl);
+  const n = Math.max(hs.length, 1);
+  inst('cPnl').setOption({
+    grid: {left: 8, right: 78, top: 16, bottom: 16, containLabel: true},
+    tooltip: {trigger: 'axis', axisPointer: {type: 'shadow'},
+      backgroundColor: 'rgba(255,255,255,.97)', borderColor: '#e6e8ec',
+      textStyle: {color: '#1b1f26', fontSize: 12},
+      formatter: p => {
+        const h = hs[p[0].dataIndex];
+        return h.name + '<br>浮动盈亏：<b>' + fmtS(h.pnl) + '</b>' + (h.div > 0 ? '<br>其中已分红：<b>+' + fmt(h.div, 0) + '</b>' : '') + '<br>盈亏率：<b>' + fmtP(h.pct) + '</b>';
+      }},
+    xAxis: Object.assign({}, AXIS, {type: 'value'}),
+    yAxis: Object.assign({}, AXIS, {type: 'category', data: hs.map(h => h.name),
+      axisTick: {show: false}}),
+    series: [{
+      type: 'bar', barMaxWidth: 16,
+      data: hs.map(h => ({value: h.pnl, itemStyle: {color: col(h.pnl), borderRadius: 3}})),
+      label: {show: true, position: 'right', fontSize: 11.5, color: '#5b6472',
+        formatter: p => fmtS(p.value, 0)}
+    }]
+  }, true);
+}
+
+function redrawSub(n) {
+  drawDD(n); drawExcess(n);
+  if (MULTI) drawPnlBar();
+}
+
+/* ---------------- 表格 ---------------- */
+function drawTable() {
+  const hs = DATA.holdings.slice().sort((a, b) => b.asset - a.asset);
+  const total = DATA.summary.totalValue;
+  const rows = hs.map(h => {
+    const w = total ? h.asset / total : 0;
+    const barw = Math.min(Math.abs(h.pct) / 0.30, 1) * 100;
+    const divTxt = h.div > 0
+      ? '<span class="up">+' + fmt(h.div, 0) + '</span>'
+      : '<span class="cd">—</span>';
+    return '<tr>'
+      + '<td><span class="nm">' + h.code + '</span><div class="cd">' + h.market + '</div></td>'
+      + '<td><span class="nm">' + h.name + '</span><div class="cd">建仓 ' + (h.buyDate || '—') + '</div></td>'
+      + '<td>' + fmt(h.shares, 0) + '</td>'
+      + '<td>' + fmt(h.cost, 3) + '</td>'
+      + '<td>' + fmt(h.price, 3) + '</td>'
+      + '<td>' + fmt(h.value, 0) + '</td>'
+      + '<td>' + divTxt + '</td>'
+      + '<td class="' + col(h.pnl) + '">' + fmtS(h.pnl, 0) + '</td>'
+      + '<td class="' + col(h.pnl) + '">' + fmtP(h.pct) + '</td>'
+      + '<td style="text-align:right">' + (w * 100).toFixed(1) + '%'
+      + '<div class="bar" style="margin-left:auto"><i style="width:' + barw.toFixed(1) + '%;background:'
+      + col(h.pnl) + '"></i></div></td>'
+      + '</tr>';
+  });
+  if (DATA.summary.cash > 0) {
+    rows.push('<tr>'
+      + '<td><span class="nm">CASH</span><div class="cd">CNY</div></td>'
+      + '<td><span class="nm">可用现金</span><div class="cd">—</div></td>'
+      + '<td>—</td><td>—</td><td>—</td>'
+      + '<td>' + fmt(DATA.summary.cash, 0) + '</td><td>—</td><td>—</td>'
+      + '<td style="text-align:right">' + (DATA.summary.cash / total * 100).toFixed(1) + '%</td></tr>');
+  }
+  document.querySelector('#tbl tbody').innerHTML = rows.join('');
+  document.getElementById('tblHint').textContent = '按持仓资产排序 · 共 ' + hs.length + ' 只标的 · 浮动盈亏 = 市值 + 已分红 − 成本';
+}
+
+/* ---------------- 启动 ---------------- */
+c1 = echarts.init(document.getElementById('c1'));
+c2 = echarts.init(document.getElementById('c2'));
+renderKpis(); drawTable(); buildSubCards(); redrawSub(0);
+if (MULTI) drawPie();
+drawMain(0); drawDaily(0);
+
+const navLen = DATA.nav.length;
+document.getElementById('rangeBtns').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#rangeBtns .btn').forEach(b => b.classList.remove('on'));
+  e.target.classList.add('on');
+  const n = parseInt(e.target.dataset.r, 10);
+  if (n && n >= navLen) { /* 区间长于样本，等同全部 */ }
+  drawMain(n); drawDaily(n); redrawSub(n);
+});
+
+window.addEventListener('resize', () => {
+  c1.resize(); c2.resize();
+  Object.keys(SUB).forEach(k => SUB[k].resize());
+});
+</script>
+</body>
+</html>
